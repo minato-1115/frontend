@@ -43,13 +43,10 @@ export const pushDB = async({
 export const getDB = async() => {
     try {
         const keys = await AsyncStorage.getAllKeys();
-
         const taskKeys = keys.filter(key => key.startsWith("@tasks_"));
-
         const taskData = await AsyncStorage.multiGet(taskKeys);
-
         const tasks = taskData.map(([keys,value]) =>JSON.parse(value!));
-        console.log("すべてのタスク:"+JSON.stringify(tasks))
+        console.log(tasks)
         return tasks
     }catch(error){
         console.error("タスクの取得に失敗しました:",error)
@@ -64,21 +61,20 @@ export const deleteDB = async() => {
         await AsyncStorage.multiRemove(taskKeys);
         console.log("タスクの削除に成功しました。")
     }catch(error){
-        console.error("タスクの削除に失敗しました")
+        console.error("タスクの削除に失敗しました:",error)
     }
 }
 
-export const updateDB = async(id:string,updatedData:controlDBType) => {
+export const updateDB = async(id:string,updatedData:dbType) => {
     try{
         const keys = await AsyncStorage.getAllKeys();
-        console.log("keys:"+keys)
         if(keys.includes(id)){
             const currentData = await AsyncStorage.getItem(id); 
             currentData && updatedData &&
             await AsyncStorage.setItem(id, JSON.stringify(updatedData));
         }
-    }catch{
-        console.log("タスクの更新に失敗しました")
+    }catch(error){
+        console.error("タスクの更新に失敗しました:",error)
         }finally{
             getDB();
         }
@@ -91,7 +87,37 @@ export const getRecord = async(id:string) => {
             const currentData = await AsyncStorage.getItem(id); 
             return currentData;
         }
-    }catch{
-        console.log("タスクの更新に失敗しました")
+    }catch(error){
+        console.error("レコードの取得に失敗しました。:",error)
     }
+}
+
+export const deleteRecord = async(id:string) => {
+    try{
+        await AsyncStorage.removeItem("@tasks_"+id);
+        console.log("タスクの削除に成功しました。")
+        getDB()
+    }catch(error){
+        console.error("タスクの削除に失敗しました:",error)
+    }
+}
+
+export const getTodayData = async() => {
+    try {
+        const keys = await AsyncStorage.getAllKeys();
+
+        const taskKeys = keys.filter(key => key.startsWith("@tasks_"));
+
+        const taskData = await AsyncStorage.multiGet(taskKeys);
+
+        const tasks = taskData.map(([keys,value]) =>JSON.parse(value!)).filter(task => {
+            const today = new Date();
+            const taskDate  = new Date(task.start_time);
+            return(today.getFullYear() === taskDate.getFullYear() && today.getMonth() === taskDate.getMonth() && today.getDate() === taskDate.getDate());
+        });
+        return tasks
+    }catch(error){
+        console.error("タスクの取得に失敗しました:",error)
+    }
+
 }

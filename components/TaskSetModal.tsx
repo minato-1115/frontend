@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
-import { Text,TouchableOpacity,View} from "react-native";
+import { useEffect, useState,useContext } from "react";
+import React from "react";
+import { Text,TouchableOpacity,View,KeyboardAvoidingView, ScrollView} from "react-native";
 import  DateTimePicker  from "@react-native-community/datetimepicker";
 import { Button, Input ,Overlay} from "@rneui/themed";
-import { pushDB, updateDB } from "@/function/dbfunction";
+import { pushDB, updateDB,deleteRecord } from "@/function/dbfunction";
 import { ColorPicker } from "./ColorPicker";
 import { Icon } from "@rneui/base";
 import { getRecord } from "@/function/dbfunction";
-import { dbType } from "@/const/type/dbtype"; 
+import { ModalContext } from "@/hooks/ModalProvider";
 interface TaskSetModalProps{
     isVisible:boolean;
     setIsVisible:(type:boolean)=>void;
@@ -22,19 +23,47 @@ export const  TaskSetModal = ({
     changeType = "create"
     }:TaskSetModalProps
     ) =>{
-    let data = null;
-    if(changeType ===  "edit"){
-    //特定のデータを取得する関数を用いてデータの取得とstateにセットする。
-        data = getRecord(id)
-    }
+
+         const context = useContext(ModalContext);
+        
+            if(!context){
+                throw new Error("context is not defined")
+            }
+        
+            const { setModalOpen } = context    
+
+    //特定のrecordが存在する場合には、レコード内容をstateに保存したい
     const [startTime, setStartTime] = useState<Date|null>(null);
     const [endTime, setEndTime] = useState<Date|null>(null);
     const [openDatePicker,setOpenTimePicker] = useState(false)
     const [taskName,setTaskName] = useState("") 
     const [description,setDescriptionName] = useState("") 
     const [type,setType] = useState("start")
-    const  [openColorPiker, setOpenColorPicker] = useState(false)
-    const [color,setColor] = useState("#000")
+    const [openColorPiker, setOpenColorPicker] = useState(false)
+    const [color,setColor] = useState("#ffc107")
+
+    useEffect(()=>{
+            if(changeType ===  "edit" && id){
+                //特定のデータを取得する関数を用いてデータの取得とstateにセットする。
+                (async () => {
+                    const data = await getRecord("@tasks_"+id);
+                    if (data) {
+                        const parsedData = JSON.parse(data);
+                        setTaskName(parsedData["task"])
+                        setDescriptionName(parsedData["description"])
+                        setStartTime(new Date(parsedData["start_time"]))
+                        setEndTime(new Date(parsedData["end_time"]))
+                        setColor(parsedData["taskColor"])
+                    }
+                })();
+            }else{
+                setTaskName("")
+                        setDescriptionName("")
+                        setStartTime(null)
+                        setEndTime(null)
+                        setColor("#ffc107")
+            }
+        },[id]);
     interface DateTimePickerEvent {
         type: string;
         nativeEvent: any;
@@ -55,7 +84,7 @@ export const  TaskSetModal = ({
 //ID が存在しない場合には、データの追加をする。
         return(
         <Overlay isVisible={isVisible} onBackdropPress={()=>setIsVisible(!isVisible)} overlayStyle = {{height:"80%",width:"80%",backgroundColor:"white",alignItems:"center",justifyContent:"space-evenly"}}>
-            <Text>新規タスク</Text>
+            { changeType === "create" ? <Text>新規タスク</Text>:<Text>タスクの変更</Text> }
             <Input label="タスク名" value={taskName} onChangeText={(value)=>setTaskName(value)}></Input>
             <Input label = "詳細" value={description} onChangeText={(value)=>setDescriptionName(value)}></Input> 
             <View style ={{width:"100%",alignItems:"center",flexDirection:"row",justifyContent:"center"}}>
@@ -90,13 +119,17 @@ export const  TaskSetModal = ({
             </TouchableOpacity>
             {openColorPiker && <ColorPicker onPress = {(value)=>setColor(value)}/> }
             <View style = {{flexDirection:"row",width:"100%",justifyContent:"flex-start"}}>
+            {/* 削除の要件も加えたいですね。 */}
             <Button 
             containerStyle ={{marginHorizontal:8}} 
             title = {id ? "更新" :"登録"} 
             onPress = {()=>{
+                try{
                 if((startTime&&endTime)&&(startTime<endTime)){
                     if(id){
-                        updateDB("@tasks_"+id,{task:taskName,
+                        updateDB("@tasks_"+id,{
+                            id:id,
+                            task:taskName,
                             description: description,
                             start_time: startTime,
                             end_time: endTime,
@@ -114,12 +147,23 @@ export const  TaskSetModal = ({
                             status: "undo"
                         })
                     }
+                    setModalOpen(false)   
                 }
-            else{
-                console.log("予定開始時刻または予定終了時刻の入力がありません")
+                else{
+                    console.log("予定開始時刻または予定終了時刻の入力がありません")
+                }
+            }catch(error){
+                console.error("データベースの登録に失敗しました。")
             }
             }}/>
-            <Button containerStyle = {{marginHorizontal:8}} title = "閉じる"/>
+            <Button 
+                containerStyle = {{marginHorizontal:8}} 
+                title = "削除" 
+                onPress={()=>{
+                    deleteRecord(id) 
+                    setModalOpen(false)
+                }}/>
+            <Button containerStyle = {{marginHorizontal:8}} title = "閉じる" onPress={()=>setModalOpen(false)}/>
             </View>
             {
             openDatePicker&&
@@ -131,5 +175,4 @@ export const  TaskSetModal = ({
             />
             }
         </Overlay>
-
     )}

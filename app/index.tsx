@@ -10,8 +10,7 @@ const HomeScreen = () => {
   return(
   <Link href={{pathname:"/detail",params:{}}}>
   <View  style ={{backgroundColor:"#fff", width:"100%", height:"100%"}}>
-  <Button title={"getDB"} onPress={getDB} containerStyle={{width:30}}></Button>
-    <Clock/>
+  <Clock/>
   </View>
   </Link>
   )
